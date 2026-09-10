@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNIKO - Horarios y Ubicaciones</title>
+    <!-- Cargando Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Configuración personalizada de Tailwind basada en el manual de marca -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        uniko: {
+                            black: '#1a1a1a',
+                            gold: '#c29b4e',
+                            gray: '#e6e6e6',
+                            orange: '#f29b5c',
+                            red: '#cc3333',
+                            blue: '#336699'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Century Gothic', 'Arial', 'Calibri', 'sans-serif'],
+                        display: ['Century Gothic', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Fuentes personalizadas básicas de respaldo si las locales no están disponibles */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Century Gothic', 'Inter', sans-serif;
+            background-color: #fafafa;
+            color: #1a1a1a;
+        }
+        
+        .bg-geometric {
+            background-color: #2b2b2b;
+            background-image: linear-gradient(30deg, #1a1a1a 12%, transparent 12.5%, transparent 87%, #1a1a1a 87.5%, #1a1a1a),
+            linear-gradient(150deg, #1a1a1a 12%, transparent 12.5%, transparent 87%, #1a1a1a 87.5%, #1a1a1a),
+            linear-gradient(30deg, #1a1a1a 12%, transparent 12.5%, transparent 87%, #1a1a1a 87.5%, #1a1a1a),
+            linear-gradient(150deg, #1a1a1a 12%, transparent 12.5%, transparent 87%, #1a1a1a 87.5%, #1a1a1a),
+            linear-gradient(60deg, #1a1a1a77 25%, transparent 25.5%, transparent 75%, #1a1a1a77 75%, #1a1a1a77), 
+            linear-gradient(60deg, #1a1a1a77 25%, transparent 25.5%, transparent 75%, #1a1a1a77 75%, #1a1a1a77);
+            background-size: 80px 140px;
+            background-position: 0 0, 0 0, 40px 70px, 40px 70px, 0 0, 40px 70px;
+            border-bottom: 4px solid #c29b4e;
+        }
+
+        .text-uniko-gold {
+            color: #c29b4e;
+        }
+    </style>
+
+    <!-- Scripts de Firebase (Compatibilidad v8 para uso sencillo en HTML) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Header / Navbar -->
+    <header class="bg-uniko-black text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center">
+                    <a href="javascript:void(0)" onclick="pedirPasswordAdmin()" class="text-3xl font-bold tracking-widest font-display cursor-pointer" title="Panel de Administración">
+                        UNI<span class="text-uniko-gold">K</span>O
+                    </a>
+                </div>
+                <!-- Desktop Menu -->
+                <nav class="hidden md:flex space-x-8">
+                    <a href="#" class="text-gray-300 hover:text-uniko-gold px-3 py-2 text-sm font-semibold uppercase tracking-wider transition duration-300">Inicio</a>
+                    <a href="#nuestras-sucursales" class="text-uniko-gold border-b-2 border-uniko-gold px-3 py-2 text-sm font-semibold uppercase tracking-wider transition duration-300">Tiendas</a>
+                </nav>
+                <!-- Mobile menu button -->
+                <div class="md:hidden flex items-center">
+                    <button type="button" class="text-gray-300 hover:text-white focus:outline-none focus:text-white" aria-label="Toggle menu" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                        <svg viewBox="0 0 24 24" class="h-6 w-6 fill-current">
+                            <path fill-rule="evenodd" d="M4 5h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Mobile Menu (Hidden by default) -->
+        <div id="mobile-menu" class="hidden md:hidden bg-uniko-black border-t border-gray-700">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#" onclick="document.getElementById('mobile-menu').classList.add('hidden')" class="text-gray-300 hover:text-uniko-gold block px-3 py-2 rounded-md text-base font-medium">Inicio</a>
+                <a href="#nuestras-sucursales" onclick="document.getElementById('mobile-menu').classList.add('hidden')" class="text-uniko-gold block px-3 py-2 rounded-md text-base font-medium font-bold">Tiendas</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="bg-geometric py-20 lg:py-32 relative overflow-hidden">
+        <div class="absolute inset-0 bg-black opacity-60"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 uppercase tracking-widest font-display">
+                Encuentra tu tienda <br/>UNI<span class="text-uniko-gold">K</span>O
+            </h1>
+            <p class="mt-4 text-xl text-gray-300 max-w-2xl mx-auto"></p>
+        </div>
+    </section>
+
+    <!-- Main Content - Locations -->
+    <main id="nuestras-sucursales" class="flex-grow bg-gray-50 py-16 scroll-mt-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-bold text-uniko-black uppercase tracking-wide">Nuestras Sucursales</h2>
+                <div class="h-1 w-24 bg-uniko-gold mx-auto mt-4"></div>
+            </div>
+
+            <!-- Mapa y botón Ubícame -->
+            <div class="mb-16">
+                <div class="flex justify-center mb-6">
+                    <button id="btn-ubicame" class="bg-uniko-black hover:bg-gray-800 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transition duration-300 uppercase text-sm tracking-widest flex items-center group">
+                        <svg class="h-5 w-5 mr-2 text-uniko-gold group-hover:animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Ubicación Más Cercana
+                    </button>
+                </div>
+                <!-- Contenedor del mapa de Google Maps -->
+                <div class="w-full h-[400px] bg-gray-200 rounded-xl shadow-inner border border-gray-300 overflow-hidden relative z-10" id="mapa-sucursales">
+                    <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                        Cargando mapa...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenedor Dinámico de Sucursales (Se llena con Firebase/JS) -->
+            <div id="grid-sucursales" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                <!-- Se inyectarán desde JavaScript -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Info Banner based on brand manual aesthetics -->
+    <section class="bg-uniko-orange py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="text-white mt-2 text-lg">Reinventarse está de moda</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-uniko-black text-white pt-12 pb-8 border-t-4 border-uniko-gold">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col items-center text-center">
+                
+                <!-- Brand Info & Redes Sociales -->
+                <div class="max-w-lg">
+                    <span class="text-3xl font-bold tracking-widest font-display block mb-4">
+                        UNI<span class="text-uniko-gold">K</span>O
+                    </span>
+                    <p class="text-gray-400 text-sm mb-6">
+                        Encuentra piezas únicas. Consigue tu look con nosotros.
+                    </p>
+                    <div class="flex justify-center space-x-6 mt-4">
+                        <!-- Facebook -->
+                        <a href="https://www.facebook.com/uniko505" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-uniko-gold transition">
+                            <span class="sr-only">Facebook</span>
+                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                        <!-- Instagram -->
+                        <a href="https://www.instagram.com/unikonic505" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-uniko-gold transition">
+                            <span class="sr-only">Instagram</span>
+                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                        <!-- TikTok -->
+                        <a href="https://www.tiktok.com/@unikonic505" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-uniko-gold transition">
+                            <span class="sr-only">TikTok</span>
+                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 448 512" aria-hidden="true">
+                                <path d="M448 209.91a210.06 210.06 0 0 1-122.77-39.25V349.38A162.55 162.55 0 1 1 185 188.31V278.2a74.62 74.62 0 1 0 52.23 71.18V0l88 0a121.18 121.18 0 0 0 1.86 22.17h0A122.18 122.18 0 0 0 381 102.39a121.43 121.43 0 0 0 67 20.14Z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-12 pt-8 border-t border-gray-800 text-center text-sm text-gray-500">
+                <p>&copy; 2026 UNIKO. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modal Personalizado para Mensajes -->
+    <div id="custom-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full mx-4 relative z-10 border-t-4 border-uniko-gold transform scale-95 transition-transform duration-300" id="modal-panel">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 mb-4">
+                    <svg class="h-6 w-6 text-uniko-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h3 id="modal-title" class="text-xl font-bold text-uniko-black uppercase tracking-wide mb-2">Mensaje</h3>
+                <p id="modal-content" class="text-gray-600 mb-6 text-sm">Contenido del mensaje</p>
+                <button onclick="closeModal()" class="bg-uniko-black hover:bg-gray-800 text-white font-bold py-2 px-6 rounded-full w-full transition duration-300 uppercase text-sm tracking-wider">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Contraseña -->
+    <div id="password-modal" class="fixed inset-0 z-[105] flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="cerrarPasswordModal()"></div>
+        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full mx-4 relative z-10 border-t-4 border-uniko-gold transform scale-95 transition-transform duration-300" id="password-panel">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-4">
+                    <svg class="h-6 w-6 text-uniko-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-uniko-black uppercase tracking-wide mb-2">Acceso Restringido</h3>
+                <p class="text-gray-600 mb-6 text-sm">Ingrese la contraseña de administrador.</p>
+                <input type="password" id="admin-password-input" class="w-full border border-gray-300 p-3 rounded mb-6 focus:ring-uniko-gold focus:border-uniko-gold outline-none text-center tracking-widest" placeholder="Contraseña" onkeypress="if(event.key === 'Enter') verificarPassword()">
+                <div class="flex gap-3">
+                    <button onclick="cerrarPasswordModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-full w-1/2 transition duration-300 uppercase text-sm tracking-wider">Cancelar</button>
+                    <button onclick="verificarPassword()" class="bg-uniko-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-full w-1/2 transition duration-300 uppercase text-sm tracking-wider">Ingresar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Administración -->
+    <div id="admin-modal" class="fixed inset-0 z-[110] flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="cerrarAdmin()"></div>
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 relative z-10 border-t-4 border-uniko-gold transform scale-95 transition-transform duration-300 flex flex-col max-h-[90vh]" id="admin-panel">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 class="text-2xl font-bold text-uniko-black uppercase tracking-wide flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-uniko-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    Administración de Sucursales
+                </h3>
+                <button onclick="cerrarAdmin()" class="text-gray-400 hover:text-uniko-red transition">
+                    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-grow flex flex-col md:flex-row gap-6">
+                <div class="w-full md:w-1/2 space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Seleccionar Sucursal</label>
+                        <select id="admin-sucursal-select" class="w-full border border-gray-300 p-2 rounded focus:ring-uniko-gold focus:border-uniko-gold outline-none" onchange="cargarDatosFormulario()">
+                            <!-- Se llena dinámicamente -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Nombre de Sucursal</label>
+                        <input type="text" id="admin-nombre" class="w-full border border-gray-300 p-2 rounded focus:ring-uniko-gold focus:border-uniko-gold outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Dirección</label>
+                        <textarea id="admin-direccion" rows="2" class="w-full border border-gray-300 p-2 rounded focus:ring-uniko-gold focus:border-uniko-gold outline-none"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Latitud</label>
+                            <input type="text" id="admin-lat" class="w-full border border-gray-300 p-2 rounded focus:ring-uniko-gold bg-gray-50 outline-none" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Longitud</label>
+                            <input type="text" id="admin-lng" class="w-full border border-gray-300 p-2 rounded focus:ring-uniko-gold bg-gray-50 outline-none" readonly>
+                        </div>
+                    </div>
+                    <div class="border-t border-gray-200 pt-4 mt-4">
+                        <label class="block text-sm font-bold text-uniko-black mb-3 uppercase tracking-wide">Horarios</label>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 uppercase">Lunes a Viernes</label>
+                                <input type="text" id="admin-horario-1" class="w-full border border-gray-300 p-2 rounded text-sm focus:ring-uniko-gold outline-none" placeholder="Ej: 9:00 AM - 6:00 PM">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 uppercase">Sábados</label>
+                                <input type="text" id="admin-horario-2" class="w-full border border-gray-300 p-2 rounded text-sm focus:ring-uniko-gold outline-none" placeholder="Ej: 9:00 AM - 5:00 PM">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 uppercase">Domingos</label>
+                                <input type="text" id="admin-horario-3" class="w-full border border-gray-300 p-2 rounded text-sm focus:ring-uniko-gold outline-none" placeholder="Ej: Cerrado">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-full md:w-1/2 flex flex-col">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Haz clic en el mapa para fijar ubicación</label>
+                    <div id="admin-map-container" class="w-full flex-grow min-h-[300px] md:min-h-full bg-gray-200 rounded-lg border border-gray-300 relative">
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200 flex justify-end gap-4 bg-gray-50 rounded-b-xl">
+                <button onclick="cerrarAdmin()" class="px-6 py-2 border border-gray-300 text-gray-700 font-bold rounded-full hover:bg-gray-100 transition uppercase text-sm tracking-wider">Cancelar</button>
+                <button onclick="guardarAdmin()" class="px-6 py-2 bg-uniko-black text-white font-bold rounded-full hover:bg-gray-800 transition uppercase text-sm tracking-wider">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================
+           CONFIGURACIÓN DE FIREBASE Y BASE DE DATOS
+           ========================================== */
+        
+        // ¡Atención! Cuando estés listo para subir esto a internet, 
+        // reemplaza los datos de abajo con los de tu proyecto de Firebase.
+        const firebaseConfig = {
+            apiKey: "TU_FIREBASE_API_KEY",
+            authDomain: "tu-proyecto-uniko.firebaseapp.com",
+            projectId: "tu-proyecto-uniko"
+        };
+
+        // El sistema detecta si pusiste tu llave o no
+        const usandoFirebaseReal = firebaseConfig.apiKey !== "TU_FIREBASE_API_KEY";
+        let db;
+        
+        if (usandoFirebaseReal) {
+            // Inicializar Firebase Real
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.firestore();
+        }
+
+        // Arreglo central de datos
+        let sucursales = [];
+        
+        // Datos por defecto para la simulación si Firebase no está configurado
+        const datosPorDefecto = [
+            { id: 'bolonia', nombre: "UNIKO - Sucursal Bolonia", lat: 12.148154, lng: -86.284261, direccion: "De Montoya 2 cuadras al sur, 1/2 cuadra arriba, Mano derecha. Managua.", horario1: "9:00 AM - 6:00 PM", horario2: "9:00 AM - 5:00 PM", horario3: "Cerrado" },
+            { id: 'plaza-once', nombre: "UNIKO - Sucursal Plaza Once", lat: 12.086395, lng: -86.232336, direccion: "Km 11 Carretera a Masaya, Plaza Once, Módulo 4. Managua.", horario1: "10:00 AM - 7:00 PM", horario2: "10:00 AM - 7:00 PM", horario3: "10:00 AM - 3:00 PM" }
+        ];
+
+        // Función para cargar los datos desde la BD (Nube o Simulador)
+        async function cargarDatosBD() {
+            if (usandoFirebaseReal) {
+                try {
+                    const snapshot = await db.collection('sucursales').get();
+                    sucursales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                } catch(e) {
+                    console.error("Error leyendo Firebase", e);
+                }
+            } else {
+                // Simulador LocalStorage (funciona idéntico a una BD en tiempo real en tu navegador)
+                let localData = localStorage.getItem('uniko_db_sucursales');
+                if (!localData) {
+                    sucursales = [...datosPorDefecto];
+                    localStorage.setItem('uniko_db_sucursales', JSON.stringify(sucursales));
+                } else {
+                    sucursales = JSON.parse(localData);
+                }
+            }
+            
+            renderizarTarjetas();
+            actualizarSelectAdmin();
+            if (window.mapReady) {
+                actualizarMarcadoresMapa();
+            }
+        }
+
+        // Guardar datos en la BD
+        async function guardarDatosBD(nuevaSucursal) {
+            if (usandoFirebaseReal) {
+                await db.collection('sucursales').doc(nuevaSucursal.id).set(nuevaSucursal);
+            } else {
+                // Simulador LocalStorage
+                const index = sucursales.findIndex(s => s.id === nuevaSucursal.id);
+                if (index > -1) {
+                    sucursales[index] = nuevaSucursal; // Actualizar
+                } else {
+                    sucursales.push(nuevaSucursal); // Agregar nueva
+                }
+                localStorage.setItem('uniko_db_sucursales', JSON.stringify(sucursales));
+            }
+            
+            // Recargar vista
+            await cargarDatosBD();
+        }
+
+        /* ==========================================
+           LÓGICA DE INTERFAZ Y GOOGLE MAPS
+           ========================================== */
+        let map;
+        let marcadoresObj = {};
+        window.mapReady = false;
+
+        function initMap() {
+            window.mapReady = true;
+            map = new google.maps.Map(document.getElementById('mapa-sucursales'), {
+                center: { lat: 12.1150, lng: -86.2500 },
+                zoom: 12,
+                mapTypeControl: false,
+                streetViewControl: false,
+                styles: [
+                    { "featureType": "poi", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] },
+                    { "featureType": "poi.business", "stylers": [{ "visibility": "off" }] }
+                ]
+            });
+            actualizarMarcadoresMapa();
+        }
+
+        function actualizarMarcadoresMapa() {
+            // Limpiar anteriores
+            Object.values(marcadoresObj).forEach(m => m.setMap(null));
+            marcadoresObj = {};
+            
+            const infoWindow = new google.maps.InfoWindow();
+
+            sucursales.forEach(suc => {
+                const marker = new google.maps.Marker({
+                    position: { lat: parseFloat(suc.lat), lng: parseFloat(suc.lng) },
+                    map: map,
+                    title: suc.nombre,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        fillColor: "#c29b4e",
+                        fillOpacity: 1,
+                        strokeWeight: 2,
+                        strokeColor: "#1a1a1a",
+                        scale: 10
+                    }
+                });
+                marcadoresObj[suc.id] = marker;
+                marker.addListener("click", () => {
+                    infoWindow.setContent(`<div class="font-sans p-2"><b class="text-uniko-black uppercase text-sm">${suc.nombre}</b><br><span class="text-xs text-gray-600">${suc.direccion}</span></div>`);
+                    infoWindow.open(map, marker);
+                });
+            });
+        }
+
+        function renderizarTarjetas() {
+            const grid = document.getElementById('grid-sucursales');
+            grid.innerHTML = ''; // Limpiar grilla
+            
+            // Inyectar tiendas activas desde la BD
+            sucursales.forEach(suc => {
+                // Generar texto para la imagen placeholder
+                const textImg = suc.nombre.replace('UNIKO - ', '').replace(/ /g, '+');
+                
+                const card = `
+                <div id="card-${suc.id}" class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 flex flex-col">
+                    <div class="h-48 bg-gray-200 relative flex-shrink-0">
+                        <img src="https://placehold.co/600x400/1a1a1a/c29b4e?text=${textImg}" alt="${suc.nombre}" class="w-full h-full object-cover">
+                        <div class="absolute top-0 right-0 bg-uniko-gold text-white font-bold py-1 px-3 rounded-bl-lg shadow">Abierto</div>
+                    </div>
+                    <div class="p-8 flex flex-col flex-grow">
+                        <div class="uppercase tracking-wide text-sm text-uniko-gold font-semibold mb-1">Ubicación</div>
+                        <h3 class="block mt-1 text-2xl leading-tight font-bold text-black uppercase">${suc.nombre.replace('UNIKO - ', '')}</h3>
+                        <p class="mt-4 text-gray-600 flex items-start flex-grow">
+                            <svg class="h-6 w-6 text-gray-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span class="text-sm leading-relaxed">${suc.direccion}</span>
+                        </p>
+                        <div class="mt-6 border-t border-gray-100 pt-6">
+                            <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Horario de Atención</h4>
+                            <ul class="text-sm text-gray-600 space-y-2">
+                                <li class="flex justify-between"><span class="font-medium">Lunes - Viernes:</span> <span>${suc.horario1 || 'No especificado'}</span></li>
+                                <li class="flex justify-between"><span class="font-medium">Sábados:</span> <span>${suc.horario2 || 'No especificado'}</span></li>
+                                <li class="flex justify-between"><span class="font-medium">Domingos:</span> <span>${suc.horario3 || 'Cerrado'}</span></li>
+                            </ul>
+                        </div>
+                        <div class="mt-8">
+                            <button onclick="llevameHastaAhi(${suc.lat}, ${suc.lng})" class="bg-uniko-black hover:bg-gray-800 text-white font-bold py-3 px-6 rounded-full w-full text-center transition duration-300 uppercase text-sm tracking-wider flex justify-center items-center shadow-md">
+                                <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                Llévame hasta ahí
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+                grid.innerHTML += card;
+            });
+
+            // Inyectar tarjeta final estática "Próximamente"
+            grid.innerHTML += `
+            <div class="bg-gray-100 rounded-xl shadow-md overflow-hidden border-2 border-dashed border-gray-300 opacity-80 flex flex-col justify-center items-center p-8 text-center h-full min-h-[400px]">
+                <div class="mb-6">
+                    <svg class="h-20 w-20 text-uniko-gold mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-800 uppercase tracking-widest font-display mb-2">UNI<span class="text-uniko-gold">K</span>O</h3>
+                <h4 class="text-xl font-bold text-gray-600 uppercase tracking-widest mb-4">Próximamente</h4>
+                <p class="text-gray-500 text-sm">
+                    Estamos trabajando para llevar la moda más cerca de ti. ¡Mantente atento a nuestras redes!
+                </p>
+                <div class="mt-6 flex justify-center">
+                    <span class="px-4 py-1 bg-gray-200 text-gray-600 text-xs font-bold uppercase rounded-full tracking-wider">Nueva Ubicación</span>
+                </div>
+            </div>`;
+        }
+
+        // --- FUNCIONES DE ADMINISTRACIÓN ---
+        let adminMap;
+        let adminMarker;
+
+        function actualizarSelectAdmin() {
+            const select = document.getElementById('admin-sucursal-select');
+            select.innerHTML = '';
+            sucursales.forEach(suc => {
+                select.innerHTML += `<option value="${suc.id}">${suc.nombre}</option>`;
+            });
+            select.innerHTML += `<option value="nueva" class="font-bold text-uniko-gold">+ Agregar Nueva Sucursal</option>`;
+        }
+
+        function pedirPasswordAdmin() {
+            const modal = document.getElementById('password-modal');
+            const panel = document.getElementById('password-panel');
+            document.getElementById('admin-password-input').value = '';
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                panel.classList.remove('scale-95');
+                panel.classList.add('scale-100');
+                document.getElementById('admin-password-input').focus();
+            }, 10);
+        }
+
+        function cerrarPasswordModal() {
+            const modal = document.getElementById('password-modal');
+            const panel = document.getElementById('password-panel');
+            modal.classList.add('opacity-0');
+            panel.classList.remove('scale-100');
+            panel.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function verificarPassword() {
+            const pass = document.getElementById('admin-password-input').value;
+            if (pass === 'adminuniko123') {
+                cerrarPasswordModal();
+                setTimeout(() => abrirAdmin(), 350);
+            } else {
+                showModal('Acceso Denegado', 'La contraseña es incorrecta.');
+                document.getElementById('admin-password-input').value = '';
+                document.getElementById('admin-password-input').focus();
+            }
+        }
+
+        function abrirAdmin() {
+            const modal = document.getElementById('admin-modal');
+            const panel = document.getElementById('admin-panel');
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                panel.classList.remove('scale-95');
+                panel.classList.add('scale-100');
+                
+                if (!adminMap) {
+                    adminMap = new google.maps.Map(document.getElementById('admin-map-container'), {
+                        center: { lat: 12.1150, lng: -86.2500 },
+                        zoom: 12,
+                        mapTypeControl: false,
+                        streetViewControl: false
+                    });
+                    adminMarker = new google.maps.Marker({
+                        map: adminMap, draggable: true, animation: google.maps.Animation.DROP,
+                    });
+                    adminMap.addListener('click', (e) => {
+                        adminMarker.setPosition(e.latLng);
+                        document.getElementById('admin-lat').value = e.latLng.lat().toFixed(6);
+                        document.getElementById('admin-lng').value = e.latLng.lng().toFixed(6);
+                    });
+                    adminMarker.addListener('dragend', () => {
+                        const pos = adminMarker.getPosition();
+                        document.getElementById('admin-lat').value = pos.lat().toFixed(6);
+                        document.getElementById('admin-lng').value = pos.lng().toFixed(6);
+                    });
+                }
+                actualizarSelectAdmin();
+                cargarDatosFormulario();
+            }, 10);
+        }
+
+        function cerrarAdmin() {
+            const modal = document.getElementById('admin-modal');
+            const panel = document.getElementById('admin-panel');
+            modal.classList.add('opacity-0');
+            panel.classList.remove('scale-100');
+            panel.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function cargarDatosFormulario() {
+            const select = document.getElementById('admin-sucursal-select').value;
+            const latInput = document.getElementById('admin-lat');
+            const lngInput = document.getElementById('admin-lng');
+
+            if (select === 'nueva') {
+                document.getElementById('admin-nombre').value = '';
+                document.getElementById('admin-direccion').value = '';
+                document.getElementById('admin-horario-1').value = '9:00 AM - 6:00 PM';
+                document.getElementById('admin-horario-2').value = '9:00 AM - 5:00 PM';
+                document.getElementById('admin-horario-3').value = 'Cerrado';
+                latInput.value = '12.115000';
+                lngInput.value = '-86.250000';
+                
+                const pos = { lat: 12.1150, lng: -86.2500 };
+                adminMarker.setPosition(pos);
+                adminMap.setCenter(pos);
+            } else {
+                const suc = sucursales.find(s => s.id === select);
+                if(suc) {
+                    document.getElementById('admin-nombre').value = suc.nombre;
+                    document.getElementById('admin-direccion').value = suc.direccion;
+                    document.getElementById('admin-horario-1').value = suc.horario1;
+                    document.getElementById('admin-horario-2').value = suc.horario2;
+                    document.getElementById('admin-horario-3').value = suc.horario3;
+                    latInput.value = suc.lat;
+                    lngInput.value = suc.lng;
+
+                    const pos = { lat: parseFloat(suc.lat), lng: parseFloat(suc.lng) };
+                    adminMarker.setPosition(pos);
+                    adminMap.setCenter(pos);
+                    adminMap.setZoom(15);
+                }
+            }
+        }
+
+        async function guardarAdmin() {
+            const idSelect = document.getElementById('admin-sucursal-select').value;
+            const nombre = document.getElementById('admin-nombre').value;
+            
+            if(!nombre.trim()) {
+                alert("El nombre de la sucursal es obligatorio.");
+                return;
+            }
+
+            // Generar un ID limpio si es nueva
+            const newId = idSelect === 'nueva' ? nombre.toLowerCase().replace(/[^a-z0-9]/g, '-') : idSelect;
+
+            const nuevaData = {
+                id: newId,
+                nombre: nombre,
+                direccion: document.getElementById('admin-direccion').value,
+                lat: parseFloat(document.getElementById('admin-lat').value),
+                lng: parseFloat(document.getElementById('admin-lng').value),
+                horario1: document.getElementById('admin-horario-1').value,
+                horario2: document.getElementById('admin-horario-2').value,
+                horario3: document.getElementById('admin-horario-3').value
+            };
+
+            cerrarAdmin();
+            await guardarDatosBD(nuevaData); // Envía a Firebase o LocalStorage
+            
+            setTimeout(() => {
+                const msg = usandoFirebaseReal ? "Guardado exitosamente en Firebase." : "Guardado en BD Local (Modo Simulador de Nube activado).";
+                showModal('¡Cambios Guardados!', msg);
+            }, 400);
+        }
+
+        // --- UTILIDADES ---
+        function llevameHastaAhi(lat, lng) {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            if (isIOS) {
+                window.open(`maps://?daddr=${lat},${lng}&dirflg=d`, '_blank');
+            } else {
+                window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+            }
+        }
+
+        function showModal(title, message) {
+            const modal = document.getElementById('custom-modal');
+            const panel = document.getElementById('modal-panel');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-content').innerText = message;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                panel.classList.remove('scale-95');
+                panel.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            const panel = document.getElementById('modal-panel');
+            modal.classList.add('opacity-0');
+            panel.classList.remove('scale-100');
+            panel.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            const R = 6371; 
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+            return R * c;
+        }
+
+        document.getElementById('btn-ubicame').addEventListener('click', function() {
+            const btn = this;
+            const iconSvg = `<svg class="h-5 w-5 mr-2 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            const originalContent = btn.innerHTML;
+            
+            if (navigator.geolocation) {
+                btn.innerHTML = `${iconSvg} Buscando...`;
+                btn.classList.add('opacity-80', 'cursor-not-allowed');
+                btn.disabled = true;
+
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
+                        let sucursalCercana = null;
+                        let distanciaMinima = Infinity;
+
+                        sucursales.forEach(suc => {
+                            const dist = calcularDistancia(userLat, userLng, suc.lat, suc.lng);
+                            if (dist < distanciaMinima) {
+                                distanciaMinima = dist;
+                                sucursalCercana = suc;
+                            }
+                        });
+
+                        btn.innerHTML = originalContent;
+                        btn.classList.remove('opacity-80', 'cursor-not-allowed');
+                        btn.disabled = false;
+
+                        if (sucursalCercana && map) {
+                            // 1. Reordenar el arreglo para que la tienda más cercana quede de primera
+                            sucursales.sort((a, b) => {
+                                if (a.id === sucursalCercana.id) return -1;
+                                if (b.id === sucursalCercana.id) return 1;
+                                return 0;
+                            });
+                            
+                            // 2. Volver a renderizar las tarjetas para aplicar el nuevo orden
+                            renderizarTarjetas();
+
+                            // 3. Centrar el mapa en la sucursal
+                            map.setCenter({ lat: parseFloat(sucursalCercana.lat), lng: parseFloat(sucursalCercana.lng) });
+                            map.setZoom(16);
+                            google.maps.event.trigger(marcadoresObj[sucursalCercana.id], 'click');
+
+                            // 4. Hacer scroll a la tarjeta y darle un efecto visual de resaltado
+                            setTimeout(() => {
+                                const tarjetaCercana = document.getElementById(`card-${sucursalCercana.id}`);
+                                if (tarjetaCercana) {
+                                    tarjetaCercana.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    
+                                    // Efecto visual de iluminación usando Tailwind
+                                    tarjetaCercana.classList.remove('hover:-translate-y-1');
+                                    tarjetaCercana.classList.add('ring-4', 'ring-uniko-gold', 'ring-offset-4', 'scale-105', 'z-10', '-translate-y-2');
+                                    
+                                    // Quitar el efecto visual después de 4 segundos para devolverla a la normalidad
+                                    setTimeout(() => {
+                                        tarjetaCercana.classList.remove('ring-4', 'ring-uniko-gold', 'ring-offset-4', 'scale-105', 'z-10', '-translate-y-2');
+                                        tarjetaCercana.classList.add('hover:-translate-y-1');
+                                    }, 4000);
+                                }
+                            }, 150); // Pequeño retraso para asegurar que la página procesó el nuevo orden
+
+                            showModal('¡Encontramos tu Tienda!', `Tu sucursal más cercana es ${sucursalCercana.nombre.replace('UNIKO - ', '')}, ubicada a ${distanciaMinima.toFixed(1)} km. La hemos colocado de primero en la lista y resaltado para ti.`);
+                        }
+                    }, 
+                    function(error) {
+                        btn.innerHTML = originalContent;
+                        btn.classList.remove('opacity-80', 'cursor-not-allowed');
+                        btn.disabled = false;
+                        let msg = "No se pudo obtener tu ubicación actual.";
+                        if (error.code === 1) msg = "Necesitas permitir acceso a tu ubicación.";
+                        showModal('Aviso de Ubicación', msg);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                showModal('Error', 'Geolocalización no soportada.');
+            }
+        });
+
+        // Iniciar la carga de datos de la BD al abrir la página
+        cargarDatosBD();
+    </script>
+    
+    <!-- API KEY de Google Maps -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBf6lATeECejIkEBntQyu2-jmYAy-xXggQ&callback=initMap" async defer></script>
+</body>
+</html>
