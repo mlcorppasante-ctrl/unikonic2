@@ -317,8 +317,8 @@
             projectId: "unikonic"
         };
 
-        // El sistema detecta si pusiste tu llave o no
-        const usandoFirebaseReal = firebaseConfig.apiKey !== "AIzaSyA1F8ceJzFbcPDu-MMqusmS8wH88RQ8RuY";
+        // FUERZA A USAR FIREBASE AHORA QUE TIENES TUS CREDENCIALES
+        const usandoFirebaseReal = true;
         let db;
         
         if (usandoFirebaseReal) {
@@ -346,6 +346,11 @@
                     sucursales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 } catch(e) {
                     console.error("Error leyendo Firebase", e);
+                    // Manejo del error de permisos
+                    if (e.code === 'permission-denied' || (e.message && e.message.includes('permissions'))) {
+                        sucursales = [...datosPorDefecto];
+                        setTimeout(() => showModal('Atención: Reglas de Firebase', 'Firebase bloqueó el acceso. Ve a tu Consola de Firebase > Firestore Database > Reglas, y cambia las reglas a "allow read, write: if true;". Se mostrarán datos de prueba mientras tanto.'), 1500);
+                    }
                 }
             } else {
                 // Simulador LocalStorage (funciona idéntico a una BD en tiempo real en tu navegador)
@@ -368,7 +373,15 @@
         // Guardar datos en la BD
         async function guardarDatosBD(nuevaSucursal) {
             if (usandoFirebaseReal) {
-                await db.collection('sucursales').doc(nuevaSucursal.id).set(nuevaSucursal);
+                try {
+                    await db.collection('sucursales').doc(nuevaSucursal.id).set(nuevaSucursal);
+                } catch (e) {
+                    console.error("Error guardando en Firebase", e);
+                    if (e.code === 'permission-denied' || (e.message && e.message.includes('permissions'))) {
+                        showModal('Error al Guardar', 'No se pudo guardar porque Firebase bloqueó la escritura. Ve a las Reglas de Firestore y asegúrate de tener "allow read, write: if true;".');
+                        throw e; // Detenemos el proceso para evitar que recargue falsamente
+                    }
+                }
             } else {
                 // Simulador LocalStorage
                 const index = sucursales.findIndex(s => s.id === nuevaSucursal.id);
@@ -647,16 +660,23 @@
                 lng: parseFloat(document.getElementById('admin-lng').value),
                 horario1: document.getElementById('admin-horario-1').value,
                 horario2: document.getElementById('admin-horario-2').value,
-                horario3: document.getElementById('admin-horario-3').value
+                horario3: document.getElementById('admin-horario-3').value,
+                token: 'adminuniko123' // La llave secreta para pasar la seguridad de Firebase
             };
 
             cerrarAdmin();
-            await guardarDatosBD(nuevaData); // Envía a Firebase o LocalStorage
             
-            setTimeout(() => {
-                const msg = usandoFirebaseReal ? "Guardado exitosamente en Firebase." : "Guardado en BD Local (Modo Simulador de Nube activado).";
-                showModal('¡Cambios Guardados!', msg);
-            }, 400);
+            try {
+                await guardarDatosBD(nuevaData); // Envía a Firebase o LocalStorage
+                
+                setTimeout(() => {
+                    const msg = usandoFirebaseReal ? "Guardado exitosamente en Firebase." : "Guardado en BD Local (Modo Simulador de Nube activado).";
+                    showModal('¡Cambios Guardados!', msg);
+                }, 400);
+            } catch (error) {
+                // El error de permisos ya fue avisado dentro de guardarDatosBD()
+                console.log("Se canceló el guardado por un error previo.");
+            }
         }
 
         // --- UTILIDADES ---
